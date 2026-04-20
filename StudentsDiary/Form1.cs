@@ -14,7 +14,7 @@ namespace StudentsDiary
 
         public Form1()
         {
-            this.Size = new Size(650, 500);
+            this.Size = new Size(700, 550);
             this.StartPosition = FormStartPosition.CenterScreen;
             InitializeDB();
             ShowLogin();
@@ -31,6 +31,8 @@ namespace StudentsDiary
                         Login TEXT UNIQUE, 
                         Pass TEXT, 
                         FullName TEXT, 
+                        Course INTEGER,
+                        GroupName TEXT,
                         Role TEXT);
                     CREATE TABLE IF NOT EXISTS Grades (
                         Id INTEGER PRIMARY KEY, 
@@ -48,7 +50,6 @@ namespace StudentsDiary
             this.Controls.Clear();
             this.Text = "Авторизація | StudentsDiary";
 
-            Panel p = new Panel { Dock = DockStyle.Fill };
             Label l1 = new Label { Text = "Логін:", Top = 100, Left = 150, AutoSize = true };
             TextBox t1 = new TextBox { Top = 100, Left = 220, Width = 150 };
             Label l2 = new Label { Text = "Пароль:", Top = 135, Left = 150, AutoSize = true };
@@ -82,9 +83,9 @@ namespace StudentsDiary
 
             DataGridView dgv = new DataGridView
             {
-                Top = 210,
+                Top = 260,
                 Left = 20,
-                Width = 600,
+                Width = 640,
                 Height = 200,
                 AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill,
                 ReadOnly = true,
@@ -92,30 +93,39 @@ namespace StudentsDiary
                 SelectionMode = DataGridViewSelectionMode.FullRowSelect
             };
 
-            GroupBox gbUser = new GroupBox { Text = "Реєстрація студента", Top = 10, Left = 20, Width = 280, Height = 140 };
+            GroupBox gbUser = new GroupBox { Text = "Реєстрація студента", Top = 10, Left = 20, Width = 280, Height = 190 };
             TextBox tLog = new TextBox { Top = 25, Left = 10, Width = 120, PlaceholderText = "Логін" };
             TextBox tPas = new TextBox { Top = 25, Left = 140, Width = 120, PlaceholderText = "Пароль" };
             TextBox tName = new TextBox { Top = 60, Left = 10, Width = 250, PlaceholderText = "ПІБ Студента" };
-            Button bAddU = new Button { Text = "Створити аккаунт", Top = 95, Left = 10, Width = 250 };
 
-            GroupBox gbGrade = new GroupBox { Text = "Успішність", Top = 10, Left = 320, Width = 300, Height = 140 };
+            Label lCourse = new Label { Text = "Курс:", Top = 95, Left = 10, AutoSize = true };
+            NumericUpDown nCourse = new NumericUpDown { Top = 93, Left = 50, Width = 40, Minimum = 1, Maximum = 4 };
+            Label lGroup = new Label { Text = "Група (ПД-):", Top = 95, Left = 110, AutoSize = true };
+            NumericUpDown nGroup = new NumericUpDown { Top = 93, Left = 190, Width = 40, Minimum = 1, Maximum = 4 };
+
+            Button bAddU = new Button { Text = "Створити аккаунт", Top = 130, Left = 10, Width = 250 };
+
+            GroupBox gbGrade = new GroupBox { Text = "Успішність", Top = 10, Left = 320, Width = 340, Height = 140 };
             TextBox tSubj = new TextBox { Top = 25, Left = 10, Width = 150, PlaceholderText = "Предмет" };
             NumericUpDown nVal = new NumericUpDown { Top = 25, Left = 170, Width = 60, Minimum = 1, Maximum = 100 };
             Button bAddG = new Button { Text = "Записати оцінку", Top = 60, Left = 10, Width = 220 };
 
-            Button bLoad = new Button { Text = "Список студентів", Top = 165, Left = 20, Width = 150 };
-            Button bDel = new Button { Text = "Видалити", Top = 165, Left = 180, Width = 100, BackColor = Color.MistyRose };
-            Button bExit = new Button { Text = "Вихід", Top = 165, Left = 520, Width = 100 };
+            Button bLoad = new Button { Text = "Список студенів", Top = 215, Left = 20, Width = 150 };
+            Button bDel = new Button { Text = "Видалити", Top = 215, Left = 180, Width = 100, BackColor = Color.MistyRose };
+            Button bExit = new Button { Text = "Вихід", Top = 215, Left = 560, Width = 100 };
 
             bAddU.Click += (s, e) => {
                 if (string.IsNullOrWhiteSpace(tLog.Text) || string.IsNullOrWhiteSpace(tName.Text)) return;
+                string generatedGroup = "ПД-" + nGroup.Value;
                 using (var conn = new SQLiteConnection(dbPath))
                 {
                     conn.Open();
-                    var cmd = new SQLiteCommand("INSERT OR IGNORE INTO Users (Login, Pass, FullName, Role) VALUES (@l, @p, @f, 'student')", conn);
+                    var cmd = new SQLiteCommand("INSERT OR IGNORE INTO Users (Login, Pass, FullName, Course, GroupName, Role) VALUES (@l, @p, @f, @c, @g, 'student')", conn);
                     cmd.Parameters.AddWithValue("@l", tLog.Text);
                     cmd.Parameters.AddWithValue("@p", tPas.Text);
                     cmd.Parameters.AddWithValue("@f", tName.Text);
+                    cmd.Parameters.AddWithValue("@c", nCourse.Value);
+                    cmd.Parameters.AddWithValue("@g", generatedGroup);
                     cmd.ExecuteNonQuery();
                 }
                 bLoad.PerformClick();
@@ -123,13 +133,14 @@ namespace StudentsDiary
             };
 
             bAddG.Click += (s, e) => {
-                if (dgv.CurrentRow == null) { MessageBox.Show("Виберіть студента!"); return; }
+                if (dgv.CurrentRow == null) { MessageBox.Show("Виберіть студента у таблиці!"); return; }
                 string selectedLogin = dgv.CurrentRow.Cells["Логін"].Value.ToString();
                 RunSql($"INSERT INTO Grades (StudentLogin, Subject, Value, Date) VALUES ('{selectedLogin}', '{tSubj.Text}', {nVal.Value}, '{DateTime.Now:dd.MM.yyyy}')");
+                MessageBox.Show("Оцінку додано!");
             };
 
             bLoad.Click += (s, e) => {
-                dgv.DataSource = GetTable("SELECT Login as 'Логін', FullName as 'ПІБ Студента', Pass as 'Пароль' FROM Users WHERE Role='student'");
+                dgv.DataSource = GetTable("SELECT Login as 'Логін', FullName as 'ПІБ', Course as 'Курс', GroupName as 'Група' FROM Users WHERE Role='student'");
             };
 
             bDel.Click += (s, e) => {
@@ -142,7 +153,7 @@ namespace StudentsDiary
 
             bExit.Click += (s, e) => ShowLogin();
 
-            gbUser.Controls.AddRange(new Control[] { tLog, tPas, tName, bAddU });
+            gbUser.Controls.AddRange(new Control[] { tLog, tPas, tName, lCourse, nCourse, lGroup, nGroup, bAddU });
             gbGrade.Controls.AddRange(new Control[] { tSubj, nVal, bAddG });
             this.Controls.AddRange(new Control[] { gbUser, gbGrade, bLoad, bDel, bExit, dgv });
         }
@@ -150,21 +161,30 @@ namespace StudentsDiary
         private void ShowStudent()
         {
             this.Controls.Clear();
-
             string fullName = "";
+            string studentInfo = "";
+
             using (var conn = new SQLiteConnection(dbPath))
             {
                 conn.Open();
-                var cmd = new SQLiteCommand("SELECT FullName FROM Users WHERE Login=@l", conn);
+                var cmd = new SQLiteCommand("SELECT FullName, Course, GroupName FROM Users WHERE Login=@l", conn);
                 cmd.Parameters.AddWithValue("@l", currentUser);
-                fullName = cmd.ExecuteScalar()?.ToString() ?? currentUser;
+                using (var reader = cmd.ExecuteReader())
+                {
+                    if (reader.Read())
+                    {
+                        fullName = reader["FullName"].ToString();
+                        studentInfo = $"Курс: {reader["Course"]} | Група: {reader["GroupName"]}";
+                    }
+                }
             }
 
             this.Text = $"Кабінет студента: {currentUser}";
 
-            Label lHeader = new Label { Text = $"Академічна інформація студента: {fullName}", Top = 15, Left = 20, AutoSize = true, Font = new Font(this.Font, FontStyle.Bold) };
-            DataGridView dgv = new DataGridView { Top = 50, Left = 20, Width = 545, Height = 250, AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill, ReadOnly = true };
+            Label lHeader = new Label { Text = $"Студент: {fullName}", Top = 15, Left = 20, AutoSize = true, Font = new Font(this.Font, FontStyle.Bold) };
+            Label lInfo = new Label { Text = studentInfo, Top = 35, Left = 20, AutoSize = true, ForeColor = Color.DarkSlateGray };
 
+            DataGridView dgv = new DataGridView { Top = 70, Left = 20, Width = 545, Height = 250, AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill, ReadOnly = true };
             DataTable dt = GetTable($"SELECT Subject as 'Предмет', Value as 'Оцінка', Date as 'Дата' FROM Grades WHERE StudentLogin='{currentUser}'");
             dgv.DataSource = dt;
 
@@ -176,11 +196,11 @@ namespace StudentsDiary
                 avg = Math.Round(sum / dt.Rows.Count, 2);
             }
 
-            Label lAvg = new Label { Text = $"Ваш середній бал: {avg}", Top = 310, Left = 20, AutoSize = true, ForeColor = Color.Blue };
-            Button bExit = new Button { Text = "Вихід з аккаунту", Top = 340, Left = 20, Width = 150 };
+            Label lAvg = new Label { Text = $"Середній бал: {avg}", Top = 330, Left = 20, AutoSize = true, ForeColor = Color.Blue };
+            Button bExit = new Button { Text = "Вийти з системи", Top = 360, Left = 20, Width = 150 };
 
             bExit.Click += (s, e) => ShowLogin();
-            this.Controls.AddRange(new Control[] { lHeader, dgv, lAvg, bExit });
+            this.Controls.AddRange(new Control[] { lHeader, lInfo, dgv, lAvg, bExit });
         }
 
         private void RunSql(string sql)
